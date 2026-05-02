@@ -1,0 +1,28 @@
+﻿# Unity generated
+Library/
+Temp/
+Obj/
+Logs/
+Backup/
+UpgradeLog.htm
+
+# Visual Studio / Rider
+.vs/
+.idea/
+
+# User settings
+UserSettings/
+
+# Build outputs
+Build/
+Builds/
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Course Library (if auto-generated)
+Assets/Course Library/
+Assets/TutorialInfo/
+Assets/_Recovery/
+Assets/Settings/
