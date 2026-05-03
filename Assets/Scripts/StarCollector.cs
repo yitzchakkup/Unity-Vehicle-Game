@@ -26,7 +26,7 @@ public class StarCollector : MonoBehaviour
     private void Start()
     {
         // Count total stars in the scene
-        Star[] starsInScene = FindObjectsOfType<Star>();
+        Star[] starsInScene = FindObjectsByType<Star>(FindObjectsSortMode.None);
         _totalStars = starsInScene.Length;
         
         UpdateDisplay();

@@ -4,19 +4,31 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     [SerializeField] private float moveSpeed = 40.0f;
-    [SerializeField] private float turnSpeed = 140.0f; // Dedicated turn speed
+    [SerializeField] private float turnSpeed = 140.0f;
+    
+    [Header("Road Boundaries")]
+    [Tooltip("Enable to manually lock the vehicle within the bounds of the road.")]
+    [SerializeField] private bool useBoundaries = true;
+    
+    // We will store the polygon that represents the road.
+    private readonly Vector2[] roadPolygon = new Vector2[]
+    {
+        new Vector2(-22.13652f, -15.15427f),
+        new Vector2(-37.2852f, -13.05346f),
+        new Vector2(-38.0466f, 347.4919f),
+        new Vector2(-22.05066f, 342.8215f)
+    };
     
     // Move action will be set by GameManager
     private InputActionReference moveAction;
     
-    // Public method for GameManager to set the move action
     public void SetMoveAction(InputActionReference action)
     {
         moveAction = action;
         if (moveAction != null)
             moveAction.action.Enable();
     }
-    
+
     void OnDisable()
     {
         if (moveAction != null)
@@ -30,10 +42,90 @@ public class PlayerController : MonoBehaviour
         // Get movement input from the Input System
         Vector2 moveInput = moveAction.action.ReadValue<Vector2>();
         
+        // Store previous position before moving
+        Vector3 previousPosition = transform.position;
+        
         // Move forward/backward based on vertical input
         transform.Translate(Vector3.forward * (moveInput.y * moveSpeed * Time.deltaTime));
         
         // Turn left/right based on horizontal input
         transform.Rotate(Vector3.up, moveInput.x * turnSpeed * Time.deltaTime);
+
+        // Keep the player within the road boundaries
+        if (useBoundaries)
+        {
+            ClampPosition(previousPosition);
+        }
+    }
+
+    private void ClampPosition(Vector3 previousPosition)
+    {
+        Vector2 currentPos2D = new Vector2(transform.position.x, transform.position.z);
+        
+        // If the current position is outside the polygon
+        if (!IsPointInPolygon(currentPos2D, roadPolygon))
+        {
+            // Simple collision resolution: push the car back to the closest point on the boundary
+            Vector2 closestPoint = GetClosestPointOnPolygon(currentPos2D, roadPolygon);
+            
+            // Apply the corrected position (keeping the original Y height)
+            transform.position = new Vector3(closestPoint.x, transform.position.y, closestPoint.y);
+        }
+    }
+    
+    // Ray-casting algorithm to determine if a point is inside a polygon
+    private bool IsPointInPolygon(Vector2 point, Vector2[] polygon)
+    {
+        bool isInside = false;
+        int j = polygon.Length - 1;
+        
+        for (int i = 0; i < polygon.Length; i++)
+        {
+            if (polygon[i].y < point.y && polygon[j].y >= point.y || polygon[j].y < point.y && polygon[i].y >= point.y)
+            {
+                if (polygon[i].x + (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) * (polygon[j].x - polygon[i].x) < point.x)
+                {
+                    isInside = !isInside;
+                }
+            }
+            j = i;
+        }
+        
+        return isInside;
+    }
+    
+    // Finds the absolute closest point on the edges of the polygon to snap the car back
+    private Vector2 GetClosestPointOnPolygon(Vector2 point, Vector2[] polygon)
+    {
+        Vector2 closestPoint = point;
+        float minDistance = float.MaxValue;
+        
+        for (int i = 0; i < polygon.Length; i++)
+        {
+            Vector2 p1 = polygon[i];
+            Vector2 p2 = polygon[(i + 1) % polygon.Length];
+            
+            Vector2 closestOnSegment = GetClosestPointOnLineSegment(point, p1, p2);
+            float dist = Vector2.Distance(point, closestOnSegment);
+            
+            if (dist < minDistance)
+            {
+                minDistance = dist;
+                closestPoint = closestOnSegment;
+            }
+        }
+        
+        return closestPoint;
+    }
+    
+    private Vector2 GetClosestPointOnLineSegment(Vector2 p, Vector2 a, Vector2 b)
+    {
+        Vector2 ab = b - a;
+        float t = Vector2.Dot(p - a, ab) / Vector2.Dot(ab, ab);
+        
+        if (t < 0.0f) return a;
+        if (t > 1.0f) return b;
+        
+        return a + t * ab;
     }
 }

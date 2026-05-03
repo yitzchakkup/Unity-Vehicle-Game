@@ -26,7 +26,7 @@ public class Star : MonoBehaviour
         if (isCollected) return;
         
         // Rotate the star
-        transform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime);
+        transform.Rotate(Vector3.up *( rotationSpeed * Time.deltaTime));
         
         // Bob up and down
         Vector3 newPos = startPosition;
@@ -50,7 +50,7 @@ public class Star : MonoBehaviour
         isCollected = true;
         
         // Notify the score manager
-        StarCollector scoreManager = FindObjectOfType<StarCollector>();
+        StarCollector scoreManager = FindFirstObjectByType<StarCollector>();
         if (scoreManager != null)
         {
             scoreManager.AddScore();

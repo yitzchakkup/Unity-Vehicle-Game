@@ -9,6 +9,10 @@ UpgradeLog.htm
 # Visual Studio / Rider
 .vs/
 .idea/
+*.sln
+*.slnx
+*.csproj
+.vsconfig
 
 # User settings
 UserSettings/

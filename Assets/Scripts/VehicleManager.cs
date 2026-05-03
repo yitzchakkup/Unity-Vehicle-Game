@@ -10,9 +10,14 @@ namespace Prefabs
         [Header("Prefabs")]
         [SerializeField] private GameObject vehiclePrefab;
         [SerializeField] private GameObject environmentPrefab;
+        [SerializeField] private GameObject obstaclePrefab;
+        [SerializeField] private GameObject starPrefab;
         
         [Header("Input Action")]
         [SerializeField] private InputActionReference moveAction;
+        
+        [Header("Spawn Settings")]
+        [SerializeField] private int starsToSpawn = 10;
         
         [Header("Spawned Objects")]
         [SerializeField] private GameObject currentVehicle;
@@ -77,26 +82,6 @@ namespace Prefabs
                 }
             }
         }
-
-        public void SpawnVehicleAndEnvironment()
-        {
-            // Destroy old objects if they exist
-            if (currentVehicle != null)
-                Destroy(currentVehicle);
-            if (currentEnvironment != null)
-                Destroy(currentEnvironment);
-
-            // Spawn environment
-            if (environmentPrefab != null)
-                currentEnvironment = Instantiate(environmentPrefab);
-
-            // Spawn vehicle
-            if (vehiclePrefab != null)
-            {
-                currentVehicle = Instantiate(vehiclePrefab);
-                AssignMoveActionToCurrentVehicle();
-            }
-        }
         
         public GameObject GetCurrentVehicle()
         {
@@ -126,6 +111,16 @@ namespace Prefabs
         public GameObject GetEnvironmentPrefab()
         {
             return environmentPrefab;
+        }
+
+        public GameObject GetObstaclePrefab()
+        {
+            return obstaclePrefab;
+        }
+        
+        public GameObject GetStarPrefab()
+        {
+            return starPrefab;
         }
 
         public InputActionReference GetMoveAction()
