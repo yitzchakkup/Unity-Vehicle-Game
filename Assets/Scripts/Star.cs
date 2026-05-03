@@ -6,6 +6,12 @@ public class Star : MonoBehaviour
     [SerializeField] private float bobHeight = 0.5f; // How much it bobs up and down
     [SerializeField] private float bobSpeed = 2f; // Speed of bobbing motion
     
+    [Header("Audio")]
+    [Tooltip("The sound to play when the star is collected")]
+    [SerializeField] private AudioClip collectSound;
+    [Tooltip("Volume of the collection sound (0.0 to 1.0)")]
+    [SerializeField] [Range(0f, 1f)] private float soundVolume = 1.0f;
+    
     private Vector3 startPosition;
     private bool isCollected = false;
     
@@ -18,6 +24,7 @@ public class Star : MonoBehaviour
         {
             SphereCollider sphereCollider = gameObject.AddComponent<SphereCollider>();
             sphereCollider.isTrigger = true;
+            sphereCollider.radius = 1.5f; // Ensure it's big enough to hit
         }
     }
     
@@ -26,7 +33,7 @@ public class Star : MonoBehaviour
         if (isCollected) return;
         
         // Rotate the star
-        transform.Rotate(Vector3.up *( rotationSpeed * Time.deltaTime));
+        transform.Rotate(Vector3.up * (rotationSpeed * Time.deltaTime));
         
         // Bob up and down
         Vector3 newPos = startPosition;
@@ -49,15 +56,31 @@ public class Star : MonoBehaviour
         
         isCollected = true;
         
-        // Notify the score manager
-        StarCollector scoreManager = FindFirstObjectByType<StarCollector>();
-        if (scoreManager != null)
+        if (collectSound != null)
         {
-            scoreManager.AddScore();
+            Vector3 soundPosition = transform.position;
+            
+            // Try to find the main camera so the sound is always at full volume to the player
+            if (Camera.main != null)
+            {
+                soundPosition = Camera.main.transform.position;
+            }
+            
+            AudioSource.PlayClipAtPoint(collectSound, soundPosition, soundVolume);
+        }
+        else
+        {
+            Debug.LogWarning("Star collected, but no Collect Sound was assigned in the Inspector!");
+        }
+        
+        // Notify the new GameManager instead of StarCollector
+        GameManager gameManager = FindFirstObjectByType<GameManager>();
+        if (gameManager != null)
+        {
+            gameManager.AddStarScore();
         }
         
         // Destroy this star
         Destroy(gameObject);
     }
 }
-

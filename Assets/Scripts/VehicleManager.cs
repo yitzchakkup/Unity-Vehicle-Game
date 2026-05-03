@@ -13,8 +13,7 @@ namespace Prefabs
         [SerializeField] private GameObject obstaclePrefab;
         [SerializeField] private GameObject starPrefab;
         
-        [Header("Input Action")]
-        [SerializeField] private InputActionReference moveAction;
+        // We removed the Input Action from here, since PlayerController now manages it directly.
         
         [Header("Spawn Settings")]
         [SerializeField] private int starsToSpawn = 10;
@@ -39,7 +38,7 @@ namespace Prefabs
             // Find the vehicle and environment in the scene if they exist
             if (currentVehicle == null)
             {
-                PlayerController controller = FindObjectOfType<PlayerController>();
+                PlayerController controller = FindFirstObjectByType<PlayerController>();
                 if (controller != null)
                 {
                     currentVehicle = controller.gameObject;
@@ -58,29 +57,9 @@ namespace Prefabs
                     Debug.LogWarning("Environment tag not defined. Please tag your street/environment GameObject with 'Environment' tag.");
                 }
             }
-
-            // Assign the move action to the current vehicle's PlayerController
-            AssignMoveActionToCurrentVehicle();
-        }
-
-        private void AssignMoveActionToCurrentVehicle()
-        {
-            if (currentVehicle != null)
-            {
-                PlayerController controller = currentVehicle.GetComponent<PlayerController>();
-                if (controller != null && moveAction != null)
-                {
-                    controller.SetMoveAction(moveAction);
-                }
-                else if (controller == null)
-                {
-                    Debug.LogError("Current vehicle does not have PlayerController component!");
-                }
-                else if (moveAction == null)
-                {
-                    Debug.LogError("Move Action is not assigned in VehicleManager!");
-                }
-            }
+            
+            // Note: We no longer assign the Move Action here!
+            // The PlayerController handles its own input now.
         }
         
         public GameObject GetCurrentVehicle()
@@ -121,11 +100,6 @@ namespace Prefabs
         public GameObject GetStarPrefab()
         {
             return starPrefab;
-        }
-
-        public InputActionReference GetMoveAction()
-        {
-            return moveAction;
         }
     }
 }

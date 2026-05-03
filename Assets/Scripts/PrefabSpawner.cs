@@ -3,87 +3,73 @@ using UnityEngine;
 
 public class PrefabSpawner : MonoBehaviour
 {
-    public void SpawnVehicle(GameObject vehiclePrefab, Vector3 localPosition = default, Transform parentTransform = null)
+    public void ChangeVehicle(GameObject newVehiclePrefab)
     {
-        if (vehiclePrefab is null)
+        if (newVehiclePrefab is null)
         {
-            Debug.LogError("Vehicle prefab is null!");
+            Debug.LogError("Vehicle prefab to spawn is null!");
             return;
         }
+
+        GameObject oldVehicle = VehicleManager.Instance.GetCurrentVehicle();
         
-        // Destroy existing vehicle if any
-        if (VehicleManager.Instance.GetCurrentVehicle() != null)
+        if (oldVehicle == null)
         {
-            Destroy(VehicleManager.Instance.GetCurrentVehicle());
-        }
-        
-        // Spawn new vehicle, passing the parent directly to Instantiate
-        // Note: we pass false for instantiateInWorldSpace so that the position we set later is treated as local
-        GameObject newVehicle = Instantiate(vehiclePrefab, parentTransform);
-        
-        // Explicitly set the local position so it behaves exactly like typing into the Inspector
-        if (parentTransform != null)
-        {
-            newVehicle.transform.localPosition = localPosition;
-            newVehicle.transform.localRotation = Quaternion.identity; // Reset rotation relative to parent
-        }
-        else
-        {
-            newVehicle.transform.position = localPosition;
+            Debug.LogWarning("No existing vehicle found to replace. Spawning at origin.");
+            SpawnVehicle(newVehiclePrefab, Vector3.zero, null, Quaternion.identity);
+            return;
         }
 
+        // Save the exact state of the old vehicle
+        Transform oldTransform = oldVehicle.transform;
+        Vector3 positionToUse = oldTransform.position;
+        Quaternion rotationToUse = oldTransform.rotation;
+        Transform parentToUse = oldTransform.parent;
+
+        // Destroy the old vehicle
+        Destroy(oldVehicle);
+
+        // Spawn the new one in the exact same spot
+        SpawnVehicle(newVehiclePrefab, positionToUse, parentToUse, rotationToUse);
+    }
+
+    private void SpawnVehicle(GameObject vehiclePrefab, Vector3 worldPosition, Transform parentTransform, Quaternion worldRotation)
+    {
+        // Instantiate using world position and rotation
+        GameObject newVehicle = Instantiate(vehiclePrefab, worldPosition, worldRotation, parentTransform);
+
+        // Update the manager
         VehicleManager.Instance.SetCurrentVehicle(newVehicle);
         
-        // Ensure input action is assigned to the new vehicle
-        PlayerController controller = newVehicle.GetComponent<PlayerController>();
-        if (controller != null)
-        {
-            controller.SetMoveAction(VehicleManager.Instance.GetMoveAction());
-        }
+        // Note: The PlayerController now manages its own input action, so we don't need to set it here anymore.
         
-        Debug.Log($"Spawned vehicle: {newVehicle.name}");
+        Debug.Log($"Spawned new vehicle: {newVehicle.name} at {worldPosition}");
     }
     
-    public void SpawnEnvironment(GameObject environmentPrefab, Vector3 position = default)
+    public void ChangeEnvironment(GameObject newEnvironmentPrefab)
     {
-        if (environmentPrefab == null)
+        if (newEnvironmentPrefab == null)
         {
             Debug.LogError("Environment prefab is null!");
             return;
         }
         
-        // Destroy existing environment if any
-        if (VehicleManager.Instance.GetCurrentEnvironment() != null)
+        GameObject oldEnvironment = VehicleManager.Instance.GetCurrentEnvironment();
+        Vector3 spawnPos = Vector3.zero;
+        Quaternion spawnRot = Quaternion.identity;
+
+        // Destroy existing environment if any, but save its location
+        if (oldEnvironment != null)
         {
-            Destroy(VehicleManager.Instance.GetCurrentEnvironment());
+            spawnPos = oldEnvironment.transform.position;
+            spawnRot = oldEnvironment.transform.rotation;
+            Destroy(oldEnvironment);
         }
         
         // Spawn new environment
-        GameObject newEnvironment = Instantiate(environmentPrefab, position, Quaternion.identity);
+        GameObject newEnvironment = Instantiate(newEnvironmentPrefab, spawnPos, spawnRot);
         VehicleManager.Instance.SetCurrentEnvironment(newEnvironment);
         
         Debug.Log($"Spawned environment: {newEnvironment.name}");
-    }
-    
-    public void ChangeVehicle(GameObject newVehiclePrefab)
-    {
-        Vector3 currentLocalPosition = Vector3.zero;
-        Transform currentParent = null;
-        
-        // Get current vehicle local position and parent if it exists
-        if (VehicleManager.Instance.GetCurrentVehicle() != null)
-        {
-            currentParent = VehicleManager.Instance.GetCurrentVehicle().transform.parent;
-            currentLocalPosition = currentParent != null 
-                ? VehicleManager.Instance.GetCurrentVehicle().transform.localPosition 
-                : VehicleManager.Instance.GetCurrentVehicle().transform.position;
-        }
-        
-        SpawnVehicle(newVehiclePrefab, currentLocalPosition, currentParent);
-    }
-    
-    public void ChangeEnvironment(GameObject newEnvironmentPrefab)
-    {
-        SpawnEnvironment(newEnvironmentPrefab);
     }
 }
