@@ -12,31 +12,36 @@ public class Star : MonoBehaviour
     [Tooltip("Volume of the collection sound (0.0 to 1.0)")]
     [SerializeField] [Range(0f, 1f)] private float soundVolume = 1.0f;
     
-    private Vector3 startPosition;
-    private bool isCollected = false;
+    private Vector3 _startPosition;
+    private bool _isCollected = false;
     
     private void Start()
     {
-        startPosition = transform.position;
+        _startPosition = transform.position;
         
         // Add a trigger collider if not present
-        if (GetComponent<Collider>() == null)
+        Collider col = GetComponent<Collider>();
+        if (col == null)
         {
             SphereCollider sphereCollider = gameObject.AddComponent<SphereCollider>();
             sphereCollider.isTrigger = true;
             sphereCollider.radius = 1.5f; // Ensure it's big enough to hit
         }
+        else
+        {
+            col.isTrigger = true;
+        }
     }
     
     private void Update()
     {
-        if (isCollected) return;
+        if (_isCollected) return;
         
         // Rotate the star
         transform.Rotate(Vector3.up * (rotationSpeed * Time.deltaTime));
         
         // Bob up and down
-        Vector3 newPos = startPosition;
+        Vector3 newPos = _startPosition;
         newPos.y += Mathf.Sin(Time.time * bobSpeed) * bobHeight;
         transform.position = newPos;
     }
@@ -52,9 +57,9 @@ public class Star : MonoBehaviour
     
     private void CollectStar()
     {
-        if (isCollected) return;
+        if (_isCollected) return;
         
-        isCollected = true;
+        _isCollected = true;
         
         if (collectSound != null)
         {
@@ -73,14 +78,20 @@ public class Star : MonoBehaviour
             Debug.LogWarning("Star collected, but no Collect Sound was assigned in the Inspector!");
         }
         
-        // Notify the new GameManager instead of StarCollector
+        // Notify the new GameManager
         GameManager gameManager = FindFirstObjectByType<GameManager>();
         if (gameManager != null)
         {
             gameManager.AddStarScore();
         }
         
-        // Destroy this star
-        Destroy(gameObject);
+        // Hide the star instead of destroying it
+        gameObject.SetActive(false);
+    }
+    
+    public void ResetStar()
+    {
+        _isCollected = false;
+        gameObject.SetActive(true);
     }
 }
