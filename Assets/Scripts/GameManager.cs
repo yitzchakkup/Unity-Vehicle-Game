@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 
@@ -15,6 +16,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI starScoreDisplay;
     [Tooltip("Drag the Obstacles Text here")]
     [SerializeField] private TextMeshProUGUI obstacleHitDisplay;
+    [Tooltip("Drag a large center screen TextMeshPro here for warnings/messages")]
+    [SerializeField] private TextMeshProUGUI warningMessageDisplay;
     
     private void Awake()
     {
@@ -38,6 +41,12 @@ public class GameManager : MonoBehaviour
         totalStars = starsInScene.Length;
         
         UpdateDisplay();
+        
+        // Hide the warning message on start
+        if (warningMessageDisplay != null)
+        {
+            warningMessageDisplay.text = "";
+        }
     }
     
     public void AddStarScore()
@@ -67,6 +76,29 @@ public class GameManager : MonoBehaviour
         {
             obstacleHitDisplay.text = $"Obstacle Hits: {obstaclesHit}";
         }
+    }
+    
+    /// <summary>
+    /// Displays a message on the screen for a specific duration.
+    /// </summary>
+    public void ShowMessage(string message, float duration)
+    {
+        if (warningMessageDisplay != null)
+        {
+            StopAllCoroutines(); // Stop any existing message timer
+            StartCoroutine(DisplayMessageRoutine(message, duration));
+        }
+        else
+        {
+            Debug.LogWarning($"GameManager tried to show message '{message}' but no Warning Message Display UI is assigned!");
+        }
+    }
+
+    private IEnumerator DisplayMessageRoutine(string message, float duration)
+    {
+        warningMessageDisplay.text = message;
+        yield return new WaitForSeconds(duration);
+        warningMessageDisplay.text = "";
     }
     
     public int GetStarsCollected() => starsCollected;

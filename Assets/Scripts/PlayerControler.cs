@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour
 {
     [SerializeField] private float moveSpeed = 40.0f;
@@ -26,18 +27,23 @@ public class PlayerController : MonoBehaviour
     // Variables to store the starting state
     private Vector3 _initialPosition;
     private Quaternion _initialRotation;
-    
+
+    // Track if the player is currently allowed to move by external scripts (like a traffic light barrier)
+    private bool _canReceiveInput = true;
+    private Rigidbody _rb;
+    private Vector2 _moveInput;
+
     public void SetMoveAction(InputActionReference action)
     {
         moveAction = action;
-        if (moveAction != null)
+        if (moveAction != null && _canReceiveInput)
             moveAction.action.Enable();
     }
 
     void OnEnable()
     {
         // Automatically enable the action when the script starts
-        if (moveAction != null)
+        if (moveAction != null && _canReceiveInput)
         {
             moveAction.action.Enable();
         }
@@ -45,9 +51,22 @@ public class PlayerController : MonoBehaviour
     
     void Start()
     {
+        _rb = GetComponent<Rigidbody>();
+        
         // Record the starting position and rotation
         _initialPosition = transform.position;
         _initialRotation = transform.rotation;
+        
+        if (_rb != null)
+        {
+            // We lock X and Z rotation to stop flipping, but keep Y free for steering.
+            // We let gravity handle the Y position naturally.
+            _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            
+            // PREVENT TUNNELING: Force the physics engine to calculate collisions for this object 
+            // continuously rather than in discrete chunks. This stops fast cars from teleporting through walls!
+            _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        }
     }
 
     void OnDisable()
@@ -60,27 +79,86 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        if (moveAction == null) return;
+        // Gather input during Update, but apply physics in FixedUpdate
+        if (moveAction == null || !_canReceiveInput)
+        {
+            _moveInput = Vector2.zero;
+            return;
+        }
+        
+        _moveInput = moveAction.action.ReadValue<Vector2>();
+    }
 
-        // Get movement input from the Input System
-        Vector2 moveInput = moveAction.action.ReadValue<Vector2>();
+    // FixedUpdate is called in sync with the physics engine.
+    // It's the only correct place to apply physics forces or modify Rigidbody velocities.
+    void FixedUpdate()
+    {
+        if (_rb == null) return;
         
-        // Store previous position before moving
-        Vector3 previousPosition = transform.position;
-        
-        // Move forward/backward based on vertical input
-        transform.Translate(Vector3.forward * (moveInput.y * moveSpeed * Time.deltaTime));
-        
-        // Turn left/right based on horizontal input
-        transform.Rotate(Vector3.up, moveInput.x * turnSpeed * Time.deltaTime);
+        // Move the car forward/backward based on vertical input (Gas/Brake)
+        // We calculate the new physical position and ask the physics engine to push the car there.
+        // This completely prevents glitching through walls or jittering against barriers.
+        Vector3 movement = transform.forward * (_moveInput.y * moveSpeed * Time.fixedDeltaTime);
+        _rb.MovePosition(_rb.position + movement);
+
+        // Turn the car based on horizontal input (Steering)
+        // We use a physically accurate torque instead of teleporting rotation
+        Quaternion turnRotation = Quaternion.Euler(0f, _moveInput.x * turnSpeed * Time.fixedDeltaTime, 0f);
+        _rb.MoveRotation(_rb.rotation * turnRotation);
 
         // Keep the player within the road boundaries
         if (useBoundaries)
         {
-            ClampPosition(previousPosition);
+            ClampPosition();
         }
     }
-    
+
+    // When the car physically hits a wall/barrier
+    private void OnCollisionEnter(Collision collision)
+    {
+        // General collision logic to stop bouncing when hitting specific objects
+        if (collision.gameObject.name == "pCube1" || collision.gameObject.GetComponent<TrafficLightBarrier>() != null)
+        {
+            if (_rb != null)
+            {
+                // Kill momentum instantly to prevent bouncing
+                _rb.linearVelocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Stops the car's movement and disables input.
+    /// </summary>
+    public void StopCar()
+    {
+        _canReceiveInput = false;
+        if (moveAction != null)
+        {
+            moveAction.action.Disable();
+        }
+        if (_rb != null)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+        }
+        Debug.Log("Car stopped by external command.");
+    }
+
+    /// <summary>
+    /// Allows the car to move and enables input.
+    /// </summary>
+    public void StartCar()
+    {
+        _canReceiveInput = true;
+        if (moveAction != null)
+        {
+            moveAction.action.Enable();
+        }
+        Debug.Log("Car allowed to move by external command.");
+    }
+
     // Public method to reset the car to its starting position, optionally playing a sound
     public void ResetToStart(AudioClip crashSound = null, float soundVolume = 1.0f)
     {
@@ -100,20 +178,22 @@ public class PlayerController : MonoBehaviour
         transform.position = _initialPosition;
         transform.rotation = _initialRotation;
         
+        // Ensure the car is allowed to move again after respawning
+        StartCar();
+        
         // If the car has a Rigidbody, we must reset its velocity so it doesn't keep flying
-        Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb != null)
+        if (_rb != null)
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
         }
         
         Debug.Log("Car reset to starting position!");
     }
 
-    private void ClampPosition(Vector3 previousPosition)
+    private void ClampPosition()
     {
-        Vector2 currentPos2D = new Vector2(transform.position.x, transform.position.z);
+        Vector2 currentPos2D = new Vector2(_rb.position.x, _rb.position.z);
         
         // If the current position is outside the polygon
         if (!IsPointInPolygon(currentPos2D, _roadPolygon))
@@ -121,8 +201,11 @@ public class PlayerController : MonoBehaviour
             // Simple collision resolution: push the car back to the closest point on the boundary
             Vector2 closestPoint = GetClosestPointOnPolygon(currentPos2D, _roadPolygon);
             
-            // Apply the corrected position (keeping the original Y height)
-            transform.position = new Vector3(closestPoint.x, transform.position.y, closestPoint.y);
+            // Apply the corrected position via physics, not teleportation
+            _rb.MovePosition(new Vector3(closestPoint.x, _rb.position.y, closestPoint.y));
+            
+            // Optional: Kill momentum when hitting the invisible side barriers so it doesn't scrape wildly
+            _rb.linearVelocity = Vector3.zero;
         }
     }
     
